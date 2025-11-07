@@ -24,27 +24,20 @@ jobs:
     - name: Find Xcode project
       id: findproj
       run: |
-        # 递归查找 .xcodeproj 目录（可能在子目录）
         PROJ_DIR=$(find . -type d -name "*.xcodeproj" | head -n1)
         if [ -z "$PROJ_DIR" ]; then
           echo "Error: No .xcodeproj directory found!"
           exit 1
         fi
-        echo "Found project directory: $PROJ_DIR"
+        echo "Found project: $PROJ_DIR"
         echo "proj_dir=$PROJ_DIR" >> $GITHUB_OUTPUT
 
-        # 取出项目名（去掉 .xcodeproj 后缀）
         PROJ_NAME=$(basename "$PROJ_DIR" .xcodeproj)
         echo "proj_name=$PROJ_NAME" >> $GITHUB_OUTPUT
-
-    - name: List schemes
-      run: |
-        xcodebuild -list -project "${{ steps.findproj.outputs.proj_dir }}"
 
     - name: Pick first scheme
       id: scheme
       run: |
-        # 提取 Schemes 列表的第一项（通常是 App 的名字）
         SCHEME=$(xcodebuild -list -project "${{ steps.findproj.outputs.proj_dir }}" \
           | sed -n '/Schemes:/,/^[[:space:]]*$/p' \
           | tail -n +2 | head -n1 | xargs)
@@ -58,7 +51,6 @@ jobs:
     - name: Build Archive (No Signing)
       run: |
         mkdir -p build
-
         xcodebuild archive \
           -project "${{ steps.findproj.outputs.proj_dir }}" \
           -scheme "${{ steps.scheme.outputs.scheme }}" \
@@ -71,19 +63,32 @@ jobs:
           DEVELOPMENT_TEAM="" \
           -quiet
 
-    - name: Export Unsigned IPA
+    - name: Manually Create Unsigned IPA
       run: |
-        xcodebuild -exportArchive \
-          -archivePath build/TaskPortHaxxApp.xcarchive \
-          -exportOptionsPlist exportOptions.plist \
-          -exportPath build \
-          -allowProvisioningUpdates \
-          -quiet
+        # 路径
+        ARCHIVE="build/TaskPortHaxxApp.xcarchive"
+        PAYLOAD="build/Payload"
+        APP_PATH="$ARCHIVE/Products/Applications"
+        
+        # 创建 Payload 目录
+        mkdir -p "$PAYLOAD"
+        
+        # 复制 .app 到 Payload
+        cp -r "$APP_PATH"/*.app "$PAYLOAD/" || exit 1
+        
+        # 创建 Info.plist（可选，增强兼容性）
+        APP_NAME=$(ls "$PAYLOAD" | head -n1)
+        echo "App bundle: $APP_NAME"
+        
+        # 打包 IPA
+        cd build
+        zip -r9 TaskPortHaxxApp-unsigned.ipa Payload/*
+        cd ..
+        
+        # 验证
+        ls -la build/TaskPortHaxxApp-unsigned.ipa
 
-        # 统一命名
-        mv build/*.ipa build/TaskPortHaxxApp-unsigned.ipa
-
-    - name: Upload IPA
+    - name: Upload Unsigned IPA
       uses: actions/upload-artifact@v4
       with:
         name: TaskPortHaxxApp-unsigned-ipa
