@@ -14,9 +14,21 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
+    - name: Install Homebrew
+      run: /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+    - name: Install GNU Make
+      run: brew install make
+
+    - name: Set PATH for GNU Make
+      run: echo "PATH=$(brew --prefix make)/libexec/gnubin:$PATH" >> $GITHUB_ENV
+
     - name: Install Theos
       run: |
-        git clone --depth 1 https://github.com/theos/theos.git $HOME/theos
+        git clone https://github.com/theos/theos.git $HOME/theos
+        cd $HOME/theos
+        git submodule update --init --recursive
+        cd -
         echo "THEOS=$HOME/theos" >> $GITHUB_ENV
         echo "$HOME/theos/bin" >> $GITHUB_PATH
 
