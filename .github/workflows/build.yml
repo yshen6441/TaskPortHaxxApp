@@ -1,0 +1,31 @@
+name: Build IPA
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Xcode
+        run: sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+
+      - name: Build unsigned IPA
+        run: |
+          xcodebuild -project TaskPortHaxxApp.xcodeproj \
+            -scheme TaskPortHaxxApp \
+            -configuration Release \
+            -archivePath build/TaskPortHaxxApp.xcarchive archive \
+            CODE_SIGNING_ALLOWED=NO
+          mkdir Payload
+          cp -r build/Release-iphoneos/TaskPortHaxxApp.app Payload/
+          zip -r TaskPortHaxxApp.ipa Payload
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: TaskPortHaxxApp
+          path: TaskPortHaxxApp.ipa
