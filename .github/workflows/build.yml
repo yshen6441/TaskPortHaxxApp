@@ -17,7 +17,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Build unsigned app with extra troller.c
         run: |
@@ -43,7 +43,7 @@ jobs:
           echo "Unsigned IPA created: $IPA_NAME"
 
       - name: Upload IPA as artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: TaskPortHaxxApp-unsigned
           path: $IPA_NAME
