@@ -45,54 +45,74 @@ jobs:
         echo "Using scheme: $SCHEME"
         echo "scheme=$SCHEME" >> $GITHUB_OUTPUT
 
-    - name: Build Archive (No Signing)
+    - name: Build Executable (No Signing)
       run: |
         mkdir -p build
-        xcodebuild archive \
+        xcodebuild \
           -project "${{ steps.findproj.outputs.proj_dir }}" \
           -scheme "${{ steps.scheme.outputs.scheme }}" \
           -configuration Release \
-          -archivePath build/TaskPortHaxxApp.xcarchive \
           -sdk iphoneos \
           CODE_SIGNING_ALLOWED=NO \
           CODE_SIGN_IDENTITY="" \
           PROVISIONING_PROFILE="" \
           DEVELOPMENT_TEAM="" \
           -quiet \
-          || exit 1
+          build
 
-    - name: Locate .app bundle
-      id: app
+    - name: Locate Mach-O Executable
+      id: binary
       run: |
-        # 全局搜索 .app 目录
-        APP_PATH=$(find build -type d -name "*.app" | head -n1)
-        if [ -z "$APP_PATH" ]; then
-          echo "Error: No .app bundle found in build output!"
-          echo "Listing build directory:"
-          ls -la build
-          echo "Listing archive:"
-          ls -la build/TaskPortHaxxApp.xcarchive || true
+        # 查找编译出的可执行文件（通常在 build/Release-iphoneos/）
+        BINARY=$(find build -type f -perm +111 -size +10k 2>/dev/null | head -n1)
+        if [ -z "$BINARY" ]; then
+          echo "Error: No executable found!"
+          ls -la build || true
           exit 1
         fi
-        echo "Found .app: $APP_PATH"
-        echo "app_path=$APP_PATH" >> $GITHUB_OUTPUT
+        echo "Found binary: $BINARY"
+        file "$BINARY"
+        echo "binary_path=$BINARY" >> $GITHUB_OUTPUT
 
-    - name: Create Payload and Package IPA
+    - name: Create Minimal IPA Structure
       run: |
+        APP_NAME="TaskPortHaxxApp"
         PAYLOAD="build/Payload"
-        mkdir -p "$PAYLOAD"
+        APP_DIR="$PAYLOAD/$APP_NAME.app"
         
-        # 复制 .app
-        cp -r "${{ steps.app.outputs.app_path }}" "$PAYLOAD/"
+        mkdir -p "$APP_DIR"
         
+        # 复制二进制
+        cp "${{ steps.binary.outputs.binary_path }}" "$APP_DIR/$APP_NAME"
+        
+        # 创建最小 Info.plist
+        cat > "$APP_DIR/Info.plist" << 'EOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleExecutable</key>
+    <string>TaskPortHaxxApp</string>
+    <key>CFBundleIdentifier</key>
+    <string>com.yshen6441.taskporthaxx</string>
+    <key>CFBundleName</key>
+    <string>TaskPortHaxxApp</string>
+    <key>CFBundleVersion</key>
+    <string>1</string>
+    <key>CFBundleShortVersionString</key>
+    <string>1.0</string>
+    <key>DTPlatformName</key>
+    <string>iphoneos</string>
+    <key>MinimumOSVersion</key>
+    <string>12.0</string>
+</dict>
+</plist>
+EOF
+
         # 打包 IPA
         cd build
         zip -r9 TaskPortHaxxApp-unsigned.ipa Payload/*
         cd ..
-        
-        # 验证
-        echo "IPA created:"
-        ls -la build/TaskPortHaxxApp-unsigned.ipa
 
     - name: Upload Unsigned IPA
       uses: actions/upload-artifact@v4
