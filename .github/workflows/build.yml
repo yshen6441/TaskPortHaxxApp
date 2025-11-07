@@ -1,53 +1,75 @@
-name: Build TaskPortHaxxApp Unsigned IPA
+name: Build Unsigned IPA for TaskPortHaxxApp
 
 on:
-  workflow_dispatch:
+  push:
+    branches: [ main, master ]  # 触发分支，可根据你的默认分支调整
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:  # 允许手动触发构建
 
 jobs:
   build:
-    runs-on: macos-latest
-    env:
-      PROJECT_NAME: TaskPortHaxxApp
-      TARGET_NAME: TaskPortHaxxApp
-      SCHEME_NAME: TaskPortHaxxApp
-      CONFIGURATION: Release
-      BUILD_DIR: build
-      EXPORT_DIR: export
-      IPA_NAME: TaskPortHaxxApp.ipa
+    runs-on: macos-latest  # 使用最新的 macOS 环境（包含 Xcode 16+）
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # 完整历史，便于构建
 
-      - name: Ensure build directories
-        run: |
-          mkdir -p $BUILD_DIR
-          mkdir -p $EXPORT_DIR/Payload
+    - name: Install dependencies
+      run: |
+        # 如果有 Makefile，运行 make（根据仓库语言比例）
+        if [ -f Makefile ]; then
+          make
+        fi
+        # 安装 Fastlane（可选，用于简化，但这里用原生 xcodebuild）
+        gem install fastlane --no-document
+        # 如果有 Podfile，安装 Pods（假设无，但预防）
+        if [ -f Podfile ]; then
+          pod install
+        fi
 
-      - name: Build unsigned app with troller.c
-        run: |
-          # 直接在 xcodebuild 命令中编译 troller.c
-          xcodebuild -project "${PROJECT_NAME}.xcodeproj" \
-                     -scheme "$SCHEME_NAME" \
-                     -configuration "$CONFIGURATION" \
-                     -sdk iphoneos \
-                     -derivedDataPath $BUILD_DIR \
-                     clean build \
-                     CODE_SIGN_IDENTITY="" \
-                     CODE_SIGNING_REQUIRED=NO \
-                     OTHER_CFLAGS="-include $(pwd)/${PROJECT_NAME}/troller.c" \
-                     -destination 'generic/platform=iOS'
+    - name: Build Archive without signing
+      run: |
+        # 创建构建目录
+        mkdir -p build
+        # 构建 Archive：替换为你的实际 .xcodeproj 和 Scheme 如果不同
+        xcodebuild archive \
+          -project TaskPortHaxxApp.xcodeproj \  # 假设项目文件名为此；如为 .xcworkspace，用 -workspace
+          -scheme TaskPortHaxxApp \  # 主 Scheme
+          -configuration Release \  # Release 配置
+          -archivePath build/TaskPortHaxxApp.xcarchive \
+          -sdk iphoneos \  # 针对 iOS 设备
+          -derivedDataPath build/DerivedData \  # 指定 DerivedData 路径
+          CODE_SIGNING_ALLOWED=NO \  # 关键：禁用签名
+          CODE_SIGN_IDENTITY="" \  # 清空签名身份
+          PROVISIONING_PROFILE=""  # 清空 Provisioning Profile
+          DEVELOPMENT_TEAM=""  # 清空团队 ID
+        # 验证 Archive 是否成功
+        ls -la build/TaskPortHaxxApp.xcarchive
 
-      - name: Package unsigned IPA
-        run: |
-          cp -R "$BUILD_DIR/Build/Products/${CONFIGURATION}-iphoneos/${TARGET_NAME}.app" "$EXPORT_DIR/Payload/"
-          cd $EXPORT_DIR
-          zip -r "../$IPA_NAME" Payload
-          cd ..
-          echo "Unsigned IPA created: $IPA_NAME"
+    - name: Export Unsigned IPA
+      run: |
+        # 使用 xcodebuild 导出（无签名）
+        xcodebuild -exportArchive \
+          -archivePath build/TaskPortHaxxApp.xcarchive \
+          -exportOptionsPlist exportOptions.plist \  # 使用下面的 plist 文件
+          -exportPath build \
+          -allowProvisioningUpdates
+        # 验证 IPA
+        ls -la build/TaskPortHaxxApp.ipa
 
-      - name: Upload IPA as artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: TaskPortHaxxApp-unsigned
-          path: $IPA_NAME
+    - name: Upload Unsigned IPA Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: TaskPortHaxxApp-unsigned-ipa
+        path: build/TaskPortHaxxApp.ipa
+        retention-days: 30  # 保留 30 天
+
+    - name: Upload Archive for debugging
+      uses: actions/upload-artifact@v4
+      with:
+        name: TaskPortHaxxApp-xcarchive
+        path: build/TaskPortHaxxApp.xcarchive
+        retention-days: 7
