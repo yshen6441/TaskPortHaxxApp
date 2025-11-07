@@ -2,74 +2,81 @@ name: Build Unsigned IPA for TaskPortHaxxApp
 
 on:
   push:
-    branches: [ main, master ]  # 触发分支，可根据你的默认分支调整
+    branches: [ main, master ]
   pull_request:
     branches: [ main, master ]
-  workflow_dispatch:  # 允许手动触发构建
+  workflow_dispatch:
 
 jobs:
   build:
-    runs-on: macos-latest  # 使用最新的 macOS 环境（包含 Xcode 16+）
+    runs-on: macos-latest
+    timeout-minutes: 60
 
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
-      with:
-        fetch-depth: 0  # 完整历史，便于构建
 
-    - name: Install dependencies
-      run: |
-        # 如果有 Makefile，运行 make（根据仓库语言比例）
-        if [ -f Makefile ]; then
-          make
-        fi
-        # 安装 Fastlane（可选，用于简化，但这里用原生 xcodebuild）
-        gem install fastlane --no-document
-        # 如果有 Podfile，安装 Pods（假设无，但预防）
-        if [ -f Podfile ]; then
-          pod install
-        fi
+    # 不再运行 make！直接跳过
+    # - name: Install dependencies
+    #   run: make  # ← 删除这一步
 
-    - name: Build Archive without signing
+    - name: Select Xcode
       run: |
-        # 创建构建目录
-        mkdir -p build
-        # 构建 Archive：替换为你的实际 .xcodeproj 和 Scheme 如果不同
+        sudo xcode-select -s /Applications/Xcode_16.1.app/Contents/Developer
+        xcodebuild -version
+
+    - name: List project files
+      run: |
+        echo "Listing project files..."
+        ls -la *.xcodeproj *.xcworkspace 2>/dev/null || echo "No .xcodeproj or .xcworkspace found"
+        ls -la
+
+    - name: Build Archive (No Signing)
+      run: |
+        # 自动查找 .xcodeproj 文件
+        PROJECT_FILE=$(ls *.xcodeproj | head -n1)
+        if [ -z "$PROJECT_FILE" ]; then
+          echo "Error: No .xcodeproj found!"
+          exit 1
+        fi
+        echo "Using project: $PROJECT_FILE"
+
+        # 自动查找 Scheme（从项目中提取）
+        SCHEME=$(xcodebuild -list -project "$PROJECT_FILE" | grep -A 100 "Schemes:" | tail -n +2 | head -1 | xargs)
+        if [ -z "$SCHEME" ]; then
+          echo "Error: No scheme found!"
+          exit 1
+        fi
+        echo "Using scheme: $SCHEME"
+
+        # 构建 Archive（禁用签名）
         xcodebuild archive \
-          -project TaskPortHaxxApp.xcodeproj \  # 假设项目文件名为此；如为 .xcworkspace，用 -workspace
-          -scheme TaskPortHaxxApp \  # 主 Scheme
-          -configuration Release \  # Release 配置
+          -project "$PROJECT_FILE" \
+          -scheme "$SCHEME" \
+          -configuration Release \
           -archivePath build/TaskPortHaxxApp.xcarchive \
-          -sdk iphoneos \  # 针对 iOS 设备
-          -derivedDataPath build/DerivedData \  # 指定 DerivedData 路径
-          CODE_SIGNING_ALLOWED=NO \  # 关键：禁用签名
-          CODE_SIGN_IDENTITY="" \  # 清空签名身份
-          PROVISIONING_PROFILE=""  # 清空 Provisioning Profile
-          DEVELOPMENT_TEAM=""  # 清空团队 ID
-        # 验证 Archive 是否成功
-        ls -la build/TaskPortHaxxApp.xcarchive
+          -sdk iphoneos \
+          CODE_SIGNING_ALLOWED=NO \
+          CODE_SIGN_IDENTITY="" \
+          PROVISIONING_PROFILE="" \
+          DEVELOPMENT_TEAM="" \
+          -quiet || exit 1
 
     - name: Export Unsigned IPA
       run: |
-        # 使用 xcodebuild 导出（无签名）
         xcodebuild -exportArchive \
           -archivePath build/TaskPortHaxxApp.xcarchive \
-          -exportOptionsPlist exportOptions.plist \  # 使用下面的 plist 文件
+          -exportOptionsPlist exportOptions.plist \
           -exportPath build \
-          -allowProvisioningUpdates
-        # 验证 IPA
-        ls -la build/TaskPortHaxxApp.ipa
+          -allowProvisioningUpdates \
+          -quiet
 
-    - name: Upload Unsigned IPA Artifact
+        # 重命名 IPA 为固定名称
+        mv build/*.ipa build/TaskPortHaxxApp-unsigned.ipa || exit 1
+
+    - name: Upload IPA
       uses: actions/upload-artifact@v4
       with:
         name: TaskPortHaxxApp-unsigned-ipa
-        path: build/TaskPortHaxxApp.ipa
-        retention-days: 30  # 保留 30 天
-
-    - name: Upload Archive for debugging
-      uses: actions/upload-artifact@v4
-      with:
-        name: TaskPortHaxxApp-xcarchive
-        path: build/TaskPortHaxxApp.xcarchive
-        retention-days: 7
+        path: build/TaskPortHaxxApp-unsigned.ipa
+        retention-days: 30
