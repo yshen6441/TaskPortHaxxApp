@@ -19,9 +19,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Build unsigned app with extra troller.c
+      - name: Ensure build directories
         run: |
           mkdir -p $BUILD_DIR
+          mkdir -p $EXPORT_DIR/Payload
+
+      - name: Build unsigned app with troller.c
+        run: |
           # 直接在 xcodebuild 命令中编译 troller.c
           xcodebuild -project "${PROJECT_NAME}.xcodeproj" \
                      -scheme "$SCHEME_NAME" \
@@ -31,11 +35,11 @@ jobs:
                      clean build \
                      CODE_SIGN_IDENTITY="" \
                      CODE_SIGNING_REQUIRED=NO \
-                     OTHER_CFLAGS="-include $(pwd)/${PROJECT_NAME}/troller.c"
+                     OTHER_CFLAGS="-include $(pwd)/${PROJECT_NAME}/troller.c" \
+                     -destination 'generic/platform=iOS'
 
       - name: Package unsigned IPA
         run: |
-          mkdir -p $EXPORT_DIR/Payload
           cp -R "$BUILD_DIR/Build/Products/${CONFIGURATION}-iphoneos/${TARGET_NAME}.app" "$EXPORT_DIR/Payload/"
           cd $EXPORT_DIR
           zip -r "../$IPA_NAME" Payload
