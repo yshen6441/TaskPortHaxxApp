@@ -8,9 +8,10 @@ on:
 jobs:
   build:
     runs-on: macos-latest
+    timeout-minutes: 60
 
     steps:
-    - name: Checkout
+    - name: Checkout code
       uses: actions/checkout@v4
 
     - name: Install Theos
@@ -22,24 +23,31 @@ jobs:
     - name: Install SDK
       run: |
         curl -L https://github.com/theos/sdks/archive/master.tar.gz -o sdks.tar.gz
-        tar -xzf sdks.tar.gz -C $THEOS/sdks
-        mv $THEOS/sdks/sdks-master/iPhoneOS17.0.sdk $THEOS/sdks/  # 调整版本
+        tar -xzf sdks.tar.gz -C $THEOS/sdks --strip-components=1
+        rm sdks.tar.gz
 
-    - name: Build with Theos
+    - name: Build with Makefile
       run: |
-        make package FINALPACKAGE=1
+        make clean
+        make package FINALPACKAGE=1 || exit 1
 
     - name: Create Unsigned IPA
       run: |
         DEB=$(find packages -name "*.deb" | head -n1)
+        if [ -z "$DEB" ]; then
+          echo "Error: No .deb found!"
+          ls -la packages
+          exit 1
+        fi
         dpkg-deb -x "$DEB" extract
-        APP_PATH=$(find extract -name "*.app" -type d | head -1)
+        APP_PATH=$(find extract -name "*.app" -type d | head -n1)
         mkdir -p Payload
         cp -r "$APP_PATH" Payload/
         zip -r9 TaskPortHaxxApp-unsigned.ipa Payload
 
-    - name: Upload IPA
+    - name: Upload IPA Artifact
       uses: actions/upload-artifact@v4
       with:
         name: unsigned-ipa
         path: TaskPortHaxxApp-unsigned.ipa
+        retention-days: 30
