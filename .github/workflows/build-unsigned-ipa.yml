@@ -16,7 +16,7 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Select Xcode 16.1
+    - name: Select Xcode
       run: |
         sudo xcode-select -s /Applications/Xcode_16.1.app/Contents/Developer
         xcodebuild -version
@@ -26,23 +26,29 @@ jobs:
       run: |
         PROJ=$(find . -name "*.xcodeproj" -type d | head -n1)
         if [ -z "$PROJ" ]; then
-          echo "No .xcodeproj found!"
+          echo "Error: No .xcodeproj found!"
           exit 1
         fi
+        echo "Found project: $PROJ"
         echo "project=$PROJ" >> $GITHUB_OUTPUT
 
     - name: Get Scheme
       id: scheme
       run: |
-        SCHEME=$(xcodebuild -list -project "${{ steps.proj.outputs.project }}" | \
+        SCHEME=$(xcodebuild -list -project "$PROJ" | \
           awk '/Schemes:/,/^$/ {if(NR>1) print}' | head -1 | xargs)
+        if [ -z "$SCHEME" ]; then
+          echo "Error: No scheme found!"
+          exit 1
+        fi
+        echo "Using scheme: $SCHEME"
         echo "scheme=$SCHEME" >> $GITHUB_OUTPUT
 
-    - name: Build Binary (No Signing)
+    - name: Build Binary
       run: |
         xcodebuild \
-          -project "${{ steps.proj.outputs.project }}" \
-          -scheme "${{ steps.scheme.outputs.scheme }}" \
+          -project "$PROJ" \
+          -scheme "$SCHEME" \
           -configuration Release \
           -sdk iphoneos \
           CODE_SIGNING_ALLOWED=NO \
@@ -55,22 +61,20 @@ jobs:
     - name: Find Executable
       id: bin
       run: |
-        BIN=$(find build -type f -perm +111 -size +10k | head -n1)
+        BIN=$(find build -type f -perm +111 -size +10k 2>/dev/null | head -n1)
         if [ -z "$BIN" ]; then
-          echo "No binary found! Listing build:"
+          echo "Error: No binary found!"
           ls -la build || true
           exit 1
         fi
-        echo "Found: $BIN"
-        file "$BIN"
+        echo "Found binary: $BIN"
         echo "path=$BIN" >> $GITHUB_OUTPUT
 
-    - name: Create Minimal IPA
+    - name: Create IPA
       run: |
         mkdir -p build/Payload/TaskPortHaxxApp.app
-        
-        cp "${{ steps.bin.outputs.path }}" build/Payload/TaskPortHaxxApp.app/TaskPortHaxxApp
-        
+        cp "$BIN" build/Payload/TaskPortHaxxApp.app/TaskPortHaxxApp
+
         cat > build/Payload/TaskPortHaxxApp.app/Info.plist << 'EOF'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
