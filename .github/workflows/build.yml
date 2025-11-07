@@ -1,4 +1,4 @@
-name: Build Unsigned IPA
+name: Build TaskPortHaxxApp
 
 on:
   workflow_dispatch:
@@ -6,31 +6,52 @@ on:
 jobs:
   build:
     runs-on: macos-latest
+    env:
+      PROJECT_NAME: TaskPortHaxxApp
+      TARGET_NAME: TaskPortHaxxApp
+      SCHEME_NAME: TaskPortHaxxApp
+      CONFIGURATION: Release
+      BUILD_DIR: build
+      EXPORT_DIR: export
     steps:
-      - name: Checkout
+      - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Set up Xcode
-        run: sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+      - name: Install Ruby gem xcodeproj
+        run: |
+          sudo gem install xcodeproj
+
+      - name: Add troller.c to Compile Sources
+        run: |
+          ruby <<'RUBY'
+          require 'xcodeproj'
+          proj_path = "#{ENV['PROJECT_NAME']}.xcodeproj"
+          target_name = ENV['TARGET_NAME']
+          file_path = "#{ENV['PROJECT_NAME']}/troller.c"
+          project = Xcodeproj::Project.open(proj_path)
+          target = project.targets.find { |t| t.name == target_name }
+          raise "Target '#{target_name}' not found" unless target
+          file_ref = project.files.find { |f| f.path == file_path }
+          file_ref ||= project.new_file(file_path)
+          target.source_build_phase.add_file_reference(file_ref) unless target.source_build_phase.files.any? { |sf| sf.file_ref == file_ref }
+          project.save
+          puts "troller.c added to Compile Sources"
+          RUBY
 
       - name: Build unsigned IPA
         run: |
-          xcodebuild -project TaskPortHaxxApp.xcodeproj \
-            -scheme TaskPortHaxxApp \
-            -configuration Release \
-            CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGN_IDENTITY="" \
-            CODE_SIGNING_REQUIRED=NO \
-            BITCODE_GENERATION_MODE=off \
-            OTHER_LDFLAGS="-framework IOKit -framework MobileCoreServices" \
-            build
+          mkdir -p $BUILD_DIR
+          xcodebuild -scheme "$SCHEME_NAME" \
+                     -configuration "$CONFIGURATION" \
+                     -workspace "${PROJECT_NAME}.xcworkspace" \
+                     -sdk iphoneos \
+                     -derivedDataPath $BUILD_DIR \
+                     build \
+                     CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO
 
-          mkdir Payload
-          cp -r build/Release-iphoneos/TaskPortHaxxApp.app Payload/
-          zip -r TaskPortHaxxApp.ipa Payload
+          mkdir -p $EXPORT_DIR
+          cp -R "$BUILD_DIR/Build/Products/${CONFIGURATION}-iphoneos/${TARGET_NAME}.app" "$EXPORT_DIR/"
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: TaskPortHaxxApp
-          path: TaskPortHaxxApp.ipa
+      - name: List exported app
+        run: |
+          ls -l $EXPORT_DIR
