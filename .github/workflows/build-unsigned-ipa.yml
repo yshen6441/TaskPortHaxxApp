@@ -32,16 +32,22 @@ jobs:
         echo "THEOS=$HOME/theos" >> $GITHUB_ENV
         echo "$HOME/theos/bin" >> $GITHUB_PATH
 
+    - name: Update Theos (Install Vendor)
+      run: $THEOS/bin/update-theos
+
     - name: Install SDK
       run: |
         curl -L https://github.com/theos/sdks/archive/master.tar.gz -o sdks.tar.gz
         tar -xzf sdks.tar.gz -C $THEOS/sdks --strip-components=1
         rm sdks.tar.gz
 
+    - name: Select Xcode
+      run: sudo xcode-select -s /Applications/Xcode_16.0.app/Contents/Developer
+
     - name: Build with Makefile
       run: |
         make clean
-        make package FINALPACKAGE=1 || exit 1
+        make package FINALPACKAGE=1 CODE_SIGN_IDENTITY="" || exit 1
 
     - name: Create Unsigned IPA
       run: |
