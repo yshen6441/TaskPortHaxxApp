@@ -1,18 +1,20 @@
 workflows:
   ios_nosign:
-    name: Build iOS App Without Signing
-    max_build_duration: 60  # 最大构建时长，单位为分钟
+    name: Build TaskPortHaxxApp (No Signing)
+    max_build_duration: 60
 
-    environment:
-      vars:
-        FLUTTER: "/usr/local/bin/flutter"
-
-    # 步骤：安装依赖
     scripts:
-      - gem install fastlane
+      - |
+        echo "🏗️  Installing dependencies..."
+        gem install fastlane
 
-    # 步骤：构建 iOS 应用
-      - xcodebuild -project TaskPortHaxxApp.xcodeproj -scheme TaskPortHaxxApp -configuration Release clean build CODE_SIGNING_REQUIRED=NO
-
-    # 步骤：导出 .ipa 文件
-      - xcodebuild -exportArchive -archivePath build/ios/TaskPortHaxxApp.xcarchive -exportPath build/ios/ipa/ -exportOptionsPlist ExportOptions.plist
+      - |
+        echo "🔨 Building the project..."
+        xcodebuild \
+          -project TaskPortHaxxApp.xcodeproj \
+          -scheme TaskPortHaxxApp \
+          -configuration Release \
+          CODE_SIGNING_REQUIRED=NO \
+          CODE_SIGN_IDENTITY="" \
+          CODE_SIGNING_ALLOWED=NO \
+          OTHER_LDFLAGS="-framework IOKit"
