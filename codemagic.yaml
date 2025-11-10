@@ -4,7 +4,7 @@ workflows:
     max_build_duration: 120
     instance_type: mac_mini_m2
     environment:
-      xcode: 14.3  # Downgrade from latest; CoreTrust bug code may target older SDKs (adjust if needed)
+      xcode: 15 # Downgrade from latest; CoreTrust bug code may target older SDKs (adjust if needed)
     scripts:
       - name: Debug info for troubleshooting
         script: |
