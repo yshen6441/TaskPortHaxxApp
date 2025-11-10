@@ -12,7 +12,7 @@
 #import "ViewController.h"
 #include "Header.h"
 #include <sys/wait.h>
-
+#include <mach-o/dyld_images.h>
 NSDictionary *getLaunchdStringOffsets(void) {
     NSMutableDictionary *dict = [NSMutableDictionary dictionary];
     
