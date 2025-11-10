@@ -1,33 +1,29 @@
 workflows:
-  ios:
-    name: Build and Release iOS App (No Signing)
-    max_build_duration: 60 # 最大构建时长，单位为分钟
+  ios_nosign:
+    name: Build iOS App Without Signing
+    platform: ios
+    max_build_duration: 60  # 最长构建时间（分钟）
 
-    # Xcode 项目和 scheme 设置
-    xcode_project: "TaskPortHaxxApp/TaskPortHaxxApp.xcodeproj" # Xcode 项目的路径
-    xcode_scheme: "TaskPortHaxxApp" # 你的 scheme，通常是项目的名字或在 Xcode 中定义的名称
+    # Xcode 项目路径 & scheme
+    xcode_project: "TaskPortHaxxApp.xcodeproj"
+    xcode_scheme: "TaskPortHaxxApp"
 
-    # 构建类型：debug 或 release
+    # 构建模式
     build_mode: release
 
-    # Xcode 版本选择
-    xcode_version: latest # 或者指定你需要的版本，例如：12.5
+    # Xcode 版本
+    xcode_version: latest
 
-    # 导出的构建方式，常见的有 ad-hoc、app-store、enterprise 或 development
-    export_method: ad-hoc
+    # 导出方式：既然不签名，可以使用 development 或 ad-hoc 但实际可能受限
+    export_method: development
 
-    # 自动生成的 .ipa 输出路径
+    # 输出 .ipa 路径
     output:
-      ipa: "build/ios/ipa/TaskPortHaxxApp.ipa"  # 可以根据你的需求修改路径
+      ipa: "build/ios/ipa/TaskPortHaxxApp.ipa"
 
-    # 跳过签名过程
+    # 跳过签名，即设置 manual，且不提供证书相关配置
     code_signing:
       signing_style: manual
-      # 取消证书和配置文件管理，因为不需要签名
+      disable_signing: true
 
-    # 可选：上传至 TestFlight 或 App Store (如果不需要上传可以省略)
-    # publish:
-    #   app_store_connect:
-    #     username: "$APPLE_USERNAME"
-    #     password: "$APPLE_PASSWORD"
-    #     team_id: "$APPLE_TEAM_ID"
+    # 可以省略 publish 部分，因为你不打算上传至 App Store 或 TestFlight
