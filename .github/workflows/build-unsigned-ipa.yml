@@ -1,71 +1,59 @@
-name: Build Unsigned IPA with Theos
+name: Build TaskPortHaxxApp on macOS
 
 on:
   push:
-    branches: [ main ]
-  workflow_dispatch:
+    branches:
+      - pacbf  # 你可以根据需要修改为你的分支名
+  pull_request:
+    branches:
+      - pacbf  # 你可以根据需要修改为你的分支名
 
 jobs:
   build:
-    runs-on: macos-latest
-    timeout-minutes: 60
+    runs-on: macos-latest  # 使用最新的 macOS 构建环境
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v2
 
-    - name: Install Homebrew
-      run: /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-
-    - name: Install GNU Make
-      run: brew install make
-
-    - name: Set PATH for GNU Make
-      run: echo "PATH=$(brew --prefix make)/libexec/gnubin:$PATH" >> $GITHUB_ENV
-
-    - name: Install Theos
-      run: |
-        git clone https://github.com/theos/theos.git $HOME/theos
-        cd $HOME/theos
-        git submodule update --init --recursive
-        cd -
-        echo "THEOS=$HOME/theos" >> $GITHUB_ENV
-        echo "$HOME/theos/bin" >> $GITHUB_PATH
-
-    - name: Update Theos (Install Vendor)
-      run: $THEOS/bin/update-theos
-
-    - name: Install SDK
-      run: |
-        curl -L https://github.com/theos/sdks/archive/master.tar.gz -o sdks.tar.gz
-        tar -xzf sdks.tar.gz -C $THEOS/sdks --strip-components=1
-        rm sdks.tar.gz
-
-    - name: Select Xcode
-      run: sudo xcode-select -s /Applications/Xcode_16.0.app/Contents/Developer
-
-    - name: Build with Makefile
-      run: |
-        make clean
-        make package FINALPACKAGE=1 CODE_SIGN_IDENTITY="" || exit 1
-
-    - name: Create Unsigned IPA
-      run: |
-        DEB=$(find packages -name "*.deb" | head -n1)
-        if [ -z "$DEB" ]; then
-          echo "Error: No .deb found!"
-          ls -la packages
-          exit 1
-        fi
-        dpkg-deb -x "$DEB" extract
-        APP_PATH=$(find extract -name "*.app" -type d | head -n1)
-        mkdir -p Payload
-        cp -r "$APP_PATH" Payload/
-        zip -r9 TaskPortHaxxApp-unsigned.ipa Payload
-
-    - name: Upload IPA Artifact
-      uses: actions/upload-artifact@v4
+    - name: Set up Ruby
+      uses: ruby/setup-ruby@v1
       with:
-        name: unsigned-ipa
-        path: TaskPortHaxxApp-unsigned.ipa
-        retention-days: 30
+        ruby-version: 2.7  # 使用 Ruby 2.7（可以根据你的需求修改）
+
+    - name: Install dependencies
+      run: |
+        gem install fastlane
+
+    - name: Install CocoaPods dependencies
+      run: |
+        pod install
+
+    - name: Build the app
+      run: |
+        # 使用 Xcode 构建项目，跳过签名
+        xcodebuild \
+          -project TaskPortHaxxApp.xcodeproj \
+          -scheme TaskPortHaxxApp \
+          -configuration Release \
+          CODE_SIGNING_REQUIRED=NO \
+          CODE_SIGN_IDENTITY="" \
+          CODE_SIGNING_ALLOWED=NO \
+          OTHER_LDFLAGS="-framework IOKit" \
+          OTHER_CFLAGS="-fobjc-arc"
+
+    - name: Archive the app and export .ipa
+      run: |
+        # 设置导出路径
+        mkdir -p $GITHUB_WORKSPACE/build/ipa
+
+        # 导出 .ipa 文件
+        xcodebuild -archivePath $GITHUB_WORKSPACE/build/TaskPortHaxxApp.xcarchive \
+          -exportPath $GITHUB_WORKSPACE/build/ipa \
+          -exportOptionsPlist ExportOptions.plist
+
+    - name: Upload .ipa as artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: TaskPortHaxxApp-ipa
+        path: $GITHUB_WORKSPACE/build/ipa/*.ipa
