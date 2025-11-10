@@ -1,16 +1,48 @@
 workflows:
-  ios_nosign:
-    name: Build iOS App Without Signing
-    max_build_duration: 60  # 最大构建时长，单位为分钟
-    actions:
-      - name: Install dependencies
-        script:
-          - gem install fastlane # 安装 fastlane（如果需要）
-      
-      - name: Build the iOS app
-        script:
-          - xcodebuild -project TaskPortHaxxApp.xcodeproj -scheme TaskPortHaxxApp -configuration Release clean build CODE_SIGNING_REQUIRED=NO
-
-      - name: Export .ipa
-        script:
-          - xcodebuild -exportArchive -archivePath build/ios/TaskPortHaxxApp.xcarchive -exportPath build/ios/ipa/ -exportOptionsPlist ExportOptions.plist
+  ios-unsigned-build:
+    name: Build Unsigned iOS IPA
+    max_build_duration: 120
+    instance_type: mac_mini_m2  # Or mac_pro for faster builds
+    environment:
+      xcode: latest  # Use a specific version if needed, e.g., 15.0
+      vars:
+        XCODE_WORKSPACE: "YOUR_WORKSPACE.xcworkspace"  # Or omit if using project
+        XCODE_SCHEME: "YOUR_SCHEME"  # e.g., TaskPortHaxxApp
+    scripts:
+      - name: Install dependencies if needed
+        script: |
+          if [ -f "Podfile" ]; then
+            pod install
+          fi
+      - name: Build unsigned archive
+        script: |
+          xcodebuild archive \
+            -workspace "$XCODE_WORKSPACE" \  # Replace with -project "YOUR_PROJECT.xcodeproj" if no workspace
+            -scheme "$XCODE_SCHEME" \
+            -sdk iphoneos \
+            -configuration Release \
+            -archivePath "$CM_BUILD_DIR/app.xcarchive" \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED="NO" \
+            CODE_SIGNING_ALLOWED="NO"
+      - name: Export unsigned IPA
+        script: |
+          cat <<EOF > unsigned.plist
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>compileBitcode</key>
+              <false/>
+              <key>method</key>
+              <string>development</string>
+          </dict>
+          </plist>
+          EOF
+          xcodebuild -exportArchive \
+            -archivePath "$CM_BUILD_DIR/app.xcarchive" \
+            -exportPath "$CM_BUILD_DIR/unsigned_ipa" \
+            -exportOptionsPlist unsigned.plist
+    artifacts:
+      - $CM_BUILD_DIR/unsigned_ipa/*.ipa  # The resulting IPA file
+      - /tmp/xcodebuild_logs/*.log  # Logs for debugging
