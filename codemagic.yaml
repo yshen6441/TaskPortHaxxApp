@@ -14,7 +14,7 @@ workflows:
         echo "🏗️ 安装 fastlane..."
         gem install fastlane
 
-      # 2️⃣ 检查源文件是否存在
+      # 2️⃣ 检查源码文件是否存在
       - |
         echo "🔍 检查源码文件..."
         ls -R TaskPortHaxxApp
@@ -44,6 +44,7 @@ workflows:
             -framework IOKit \
             -framework UIKit \
             -framework Foundation \
+            -I$(xcrun --sdk iphoneos --show-sdk-path)/usr/include \
             TaskPortHaxxApp/troller.m \
             -c -o TaskPortHaxxApp/troller.o
         fi
