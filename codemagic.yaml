@@ -2,9 +2,9 @@ workflows:
   ios-unsigned-build:
     name: Build Unsigned iOS IPA
     max_build_duration: 120
-    instance_type: mac_mini_m2  # Or mac_pro for faster builds
+    instance_type: mac_mini_m2
     environment:
-      xcode: latest  # Try a specific version if needed, e.g., 14.3 for older compatibility: xcode: 14.3
+      xcode: 14.3  # Downgrade from latest; CoreTrust bug code may target older SDKs (adjust if needed)
     scripts:
       - name: Debug info for troubleshooting
         script: |
@@ -23,12 +23,10 @@ workflows:
             echo "Listing schemes from project:"
             xcodebuild -list -project $(find . -name "*.xcodeproj" | head -1)
           fi
-          # If Makefile exists, show its contents for reference
           if [ -f "Makefile" ] || [ -n "$(find . -name 'Makefile')" ]; then
             echo "Makefile found - contents:"
             cat $(find . -name "Makefile" | head -1)
           fi
-          # If .sh files exist, list them
           sh_files=$(find . -name "*.sh")
           if [ -n "$sh_files" ]; then
             echo "Shell scripts found: $sh_files"
@@ -36,12 +34,12 @@ workflows:
       - name: Build unsigned (pre-archive step for isolation)
         script: |
           set -x
+          # If debug shows Makefile/.sh are used for build, uncomment and adapt (e.g., replace xcodebuild)
+          # make all || sh path/to/your_script.sh
           xcodebuild build -project "TaskPortHaxxApp.xcodeproj" -scheme "TaskPortHaxxApp" -sdk iphoneos -configuration Release CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED="NO" CODE_SIGNING_ALLOWED="NO" -verbose
       - name: Build unsigned archive
         script: |
           set -x
-          # Uncomment below if debug shows a Makefile or .sh – replace with actual path/name
-          # make all || sh path/to/build.sh
           xcodebuild archive -project "TaskPortHaxxApp.xcodeproj" -scheme "TaskPortHaxxApp" -sdk iphoneos -configuration Release -archivePath "$CM_BUILD_DIR/app.xcarchive" CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED="NO" CODE_SIGNING_ALLOWED="NO" -verbose
       - name: Export unsigned IPA
         script: |
@@ -60,5 +58,5 @@ workflows:
           EOF
           xcodebuild -exportArchive -archivePath "$CM_BUILD_DIR/app.xcarchive" -exportPath "$CM_BUILD_DIR/unsigned_ipa" -exportOptionsPlist unsigned.plist -verbose
     artifacts:
-      - $CM_BUILD_DIR/unsigned_ipa/*.ipa  # The resulting IPA file
-      - /tmp/xcodebuild_logs/*.log  # Logs for debugging
+      - $CM_BUILD_DIR/unsigned_ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
