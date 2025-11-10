@@ -1,23 +1,34 @@
 workflows:
-  ios-build:
-    name: TaskPortHaxxApp iOS Build
-    environment:
-      xcode: 16.0
-      cocoapods: default
-    scripts:
-      - name: Install dependencies
-        script: |
-          pod install || true
-      - name: Build IPA
-        script: |
-          xcodebuild -project TaskPortHaxxApp.xcodeproj \
-            -scheme TaskPortHaxxApp \
-            -configuration Release \
-            -archivePath $CM_BUILD_DIR/TaskPortHaxxApp.xcarchive archive
+  ios:
+    name: Build and Release iOS App (No Signing)
+    platform: ios
+    max_build_duration: 60 # 最大构建时长，单位为分钟
 
-          xcodebuild -exportArchive \
-            -archivePath $CM_BUILD_DIR/TaskPortHaxxApp.xcarchive \
-            -exportOptionsPlist ExportOptions.plist \
-            -exportPath $CM_BUILD_DIR/ipa
-    artifacts:
-      - $CM_BUILD_DIR/ipa/*.ipa
+    # Xcode 项目和 scheme 设置
+    xcode_project: "TaskPortHaxxApp-pacbf/TaskPortHaxxApp.xcodeproj" # Xcode 项目的路径
+    xcode_scheme: "TaskPortHaxxApp" # 你的 scheme，通常是项目的名字或在 Xcode 中定义的名称
+
+    # 构建类型：debug 或 release
+    build_mode: release
+
+    # Xcode 版本选择
+    xcode_version: latest # 或者指定你需要的版本，例如：12.5
+
+    # 导出的构建方式，常见的有 ad-hoc、app-store、enterprise 或 development
+    export_method: ad-hoc
+
+    # 自动生成的 .ipa 输出路径
+    output:
+      ipa: "build/ios/ipa/TaskPortHaxxApp.ipa"  # 可以根据你的需求修改路径
+
+    # 跳过签名过程
+    code_signing:
+      signing_style: manual
+      # 取消证书和配置文件管理，因为不需要签名
+
+    # 可选：上传至 TestFlight 或 App Store (如果不需要上传可以省略)
+    # publish:
+    #   app_store_connect:
+    #     username: "$APPLE_USERNAME"
+    #     password: "$APPLE_PASSWORD"
+    #     team_id: "$APPLE_TEAM_ID"
