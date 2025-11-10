@@ -1,28 +1,16 @@
 workflows:
   ios_nosign:
     name: Build iOS App Without Signing
-    max_build_duration: 60  # 最长构建时间（分钟）
+    max_build_duration: 60  # 最大构建时长，单位为分钟
+    actions:
+      - name: Install dependencies
+        script:
+          - gem install fastlane # 安装 fastlane（如果需要）
+      
+      - name: Build the iOS app
+        script:
+          - xcodebuild -project TaskPortHaxxApp.xcodeproj -scheme TaskPortHaxxApp -configuration Release clean build CODE_SIGNING_REQUIRED=NO
 
-    # Xcode 项目路径 & scheme
-    xcode_project: "TaskPortHaxxApp.xcodeproj"
-    xcode_scheme: "TaskPortHaxxApp"
-
-    # 构建模式
-    build_mode: release
-
-    # Xcode 版本
-    xcode_version: latest
-
-    # 导出方式：既然不签名，可以使用 development 或 ad-hoc 但实际可能受限
-    export_method: development
-
-    # 输出 .ipa 路径
-    output:
-      ipa: "build/ios/ipa/TaskPortHaxxApp.ipa"
-
-    # 跳过签名，即设置 manual，且不提供证书相关配置
-    code_signing:
-      signing_style: manual
-      disable_signing: true
-
-    # 可以省略 publish 部分，因为你不打算上传至 App Store 或 TestFlight
+      - name: Export .ipa
+        script:
+          - xcodebuild -exportArchive -archivePath build/ios/TaskPortHaxxApp.xcarchive -exportPath build/ios/ipa/ -exportOptionsPlist ExportOptions.plist
