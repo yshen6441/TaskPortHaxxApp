@@ -1,7 +1,6 @@
 workflows:
   ios:
     name: Build and Release iOS App (No Signing)
-    platform: ios
     max_build_duration: 60 # 最大构建时长，单位为分钟
 
     # Xcode 项目和 scheme 设置
