@@ -1,0 +1,23 @@
+workflows:
+  ios-build:
+    name: TaskPortHaxxApp iOS Build
+    environment:
+      xcode: 16.0
+      cocoapods: default
+    scripts:
+      - name: Install dependencies
+        script: |
+          pod install || true
+      - name: Build IPA
+        script: |
+          xcodebuild -project TaskPortHaxxApp.xcodeproj \
+            -scheme TaskPortHaxxApp \
+            -configuration Release \
+            -archivePath $CM_BUILD_DIR/TaskPortHaxxApp.xcarchive archive
+
+          xcodebuild -exportArchive \
+            -archivePath $CM_BUILD_DIR/TaskPortHaxxApp.xcarchive \
+            -exportOptionsPlist ExportOptions.plist \
+            -exportPath $CM_BUILD_DIR/ipa
+    artifacts:
+      - $CM_BUILD_DIR/ipa/*.ipa
