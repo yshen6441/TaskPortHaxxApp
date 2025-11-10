@@ -1,62 +1,17 @@
 workflows:
-  ios-unsigned-build:
-    name: Build Unsigned iOS IPA
-    max_build_duration: 120
-    instance_type: mac_mini_m2
-    environment:
-      xcode: 15.3  # Supported version; change to 'latest' if needed
-    scripts:
-      - name: Debug info for troubleshooting
-        script: |
-          set -x
-          echo "Listing all files:"
-          ls -laR
-          echo "Searching for Xcode files:"
-          find . -name "*.xcodeproj" -o -name "*.xcworkspace" -o -name "Podfile" -o -name "Makefile" -o -name "*.sh"
-          if [ -f "Podfile" ]; then
-            echo "Podfile found - installing pods"
-            pod install
-            echo "Listing schemes from workspace:"
-            xcodebuild -list -workspace $(find . -name "*.xcworkspace" | head -1)
-          else
-            echo "No Podfile - assuming project file"
-            echo "Listing schemes from project:"
-            xcodebuild -list -project $(find . -name "*.xcodeproj" | head -1)
-          fi
-          if [ -f "Makefile" ] || [ -n "$(find . -name 'Makefile')" ]; then
-            echo "Makefile found - contents:"
-            cat $(find . -name "Makefile" | head -1)
-          fi
-          sh_files=$(find . -name "*.sh")
-          if [ -n "$sh_files" ]; then
-            echo "Shell scripts found: $sh_files"
-          fi
-      - name: Build unsigned (pre-archive step for isolation)
-        script: |
-          set -x
-          # If debug shows Makefile/.sh are used for build, uncomment and adapt (e.g., replace xcodebuild)
-          # make all || sh path/to/your_script.sh
-          xcodebuild build -project "TaskPortHaxxApp.xcodeproj" -scheme "TaskPortHaxxApp" -sdk iphoneos -configuration Release CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED="NO" CODE_SIGNING_ALLOWED="NO" -verbose
-      - name: Build unsigned archive
-        script: |
-          set -x
-          xcodebuild archive -project "TaskPortHaxxApp.xcodeproj" -scheme "TaskPortHaxxApp" -sdk iphoneos -configuration Release -archivePath "$CM_BUILD_DIR/app.xcarchive" CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED="NO" CODE_SIGNING_ALLOWED="NO" -verbose
-      - name: Export unsigned IPA
-        script: |
-          set -x
-          cat <<EOF > unsigned.plist
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-              <key>compileBitcode</key>
-              <false/>
-              <key>method</key>
-              <string>development</string>
-          </dict>
-          </plist>
-          EOF
-          xcodebuild -exportArchive -archivePath "$CM_BUILD_DIR/app.xcarchive" -exportPath "$CM_BUILD_DIR/unsigned_ipa" -exportOptionsPlist unsigned.plist -verbose
-    artifacts:
-      - $CM_BUILD_DIR/unsigned_ipa/*.ipa
-      - /tmp/xcodebuild_logs/*.log
+  ios_nosign:
+    name: Build iOS App Without Signing
+    platform: ios
+    max_build_duration: 60  # 最大构建时长，单位为分钟
+    actions:
+      - name: Install dependencies
+        script:
+          - gem install fastlane # 安装 fastlane（如果需要）
+      
+      - name: Build the iOS app
+        script:
+          - xcodebuild -project TaskPortHaxxApp.xcodeproj -scheme TaskPortHaxxApp -configuration Release clean build CODE_SIGNING_REQUIRED=NO
+
+      - name: Export .ipa
+        script:
+          - xcodebuild -exportArchive -archivePath build/ios/TaskPortHaxxApp.xcarchive -exportPath build/ios/ipa/ -exportOptionsPlist ExportOptions.plist
