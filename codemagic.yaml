@@ -1,7 +1,6 @@
 workflows:
   ios_nosign:
     name: Build iOS App Without Signing
-    platform: ios
     max_build_duration: 60  # 最长构建时间（分钟）
 
     # Xcode 项目路径 & scheme
