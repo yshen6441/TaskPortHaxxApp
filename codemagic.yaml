@@ -5,26 +5,27 @@ workflows:
     instance_type: mac_mini_m2  # Or mac_pro for faster builds
     environment:
       xcode: latest  # Use a specific version if needed, e.g., 15.0
-      vars:
-        XCODE_WORKSPACE: "YOUR_WORKSPACE.xcworkspace"  # Or omit if using project
-        XCODE_SCHEME: "YOUR_SCHEME"  # e.g., TaskPortHaxxApp
     scripts:
-      - name: Install dependencies if needed
+      - name: Debug info for troubleshooting
         script: |
+          echo "Listing all files:"
+          ls -laR
+          echo "Searching for Xcode files:"
+          find . -name "*.xcodeproj" -o -name "*.xcworkspace" -o -name "Podfile" -o -name "Makefile" -o -name "*.sh"
           if [ -f "Podfile" ]; then
+            echo "Podfile found - installing pods"
             pod install
+            echo "Listing schemes from workspace:"
+            xcodebuild -list -workspace $(find . -name "*.xcworkspace" | head -1)
+          else
+            echo "No Podfile - assuming project file"
+            echo "Listing schemes from project:"
+            xcodebuild -list -project $(find . -name "*.xcodeproj" | head -1)
           fi
       - name: Build unsigned archive
         script: |
-          xcodebuild archive \
-            -workspace "$XCODE_WORKSPACE" \  # Replace with -project "YOUR_PROJECT.xcodeproj" if no workspace
-            -scheme "$XCODE_SCHEME" \
-            -sdk iphoneos \
-            -configuration Release \
-            -archivePath "$CM_BUILD_DIR/app.xcarchive" \
-            CODE_SIGN_IDENTITY="" \
-            CODE_SIGNING_REQUIRED="NO" \
-            CODE_SIGNING_ALLOWED="NO"
+          # Use -workspace instead of -project below if debug shows a .xcworkspace (and adjust file name)
+          xcodebuild archive -project "TaskPortHaxxApp.xcodeproj" -scheme "TaskPortHaxxApp" -sdk iphoneos -configuration Release -archivePath "$CM_BUILD_DIR/app.xcarchive" CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED="NO" CODE_SIGNING_ALLOWED="NO"
       - name: Export unsigned IPA
         script: |
           cat <<EOF > unsigned.plist
@@ -39,10 +40,7 @@ workflows:
           </dict>
           </plist>
           EOF
-          xcodebuild -exportArchive \
-            -archivePath "$CM_BUILD_DIR/app.xcarchive" \
-            -exportPath "$CM_BUILD_DIR/unsigned_ipa" \
-            -exportOptionsPlist unsigned.plist
+          xcodebuild -exportArchive -archivePath "$CM_BUILD_DIR/app.xcarchive" -exportPath "$CM_BUILD_DIR/unsigned_ipa" -exportOptionsPlist unsigned.plist
     artifacts:
       - $CM_BUILD_DIR/unsigned_ipa/*.ipa  # The resulting IPA file
       - /tmp/xcodebuild_logs/*.log  # Logs for debugging
