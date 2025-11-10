@@ -4,7 +4,7 @@ workflows:
     max_build_duration: 60 # 最大构建时长，单位为分钟
 
     # Xcode 项目和 scheme 设置
-    xcode_project: "TaskPortHaxxApp-pacbf/TaskPortHaxxApp.xcodeproj" # Xcode 项目的路径
+    xcode_project: "TaskPortHaxxApp/TaskPortHaxxApp.xcodeproj" # Xcode 项目的路径
     xcode_scheme: "TaskPortHaxxApp" # 你的 scheme，通常是项目的名字或在 Xcode 中定义的名称
 
     # 构建类型：debug 或 release
