@@ -1,4 +1,4 @@
-name: Build TaskPortHaxxApp (Payload Zip)
+name: Build TaskPortHaxxApp (Theos)
 
 on:
   push:
@@ -7,85 +7,36 @@ on:
 
 jobs:
   build:
-    runs-on: macos-14
+    runs-on: macos-13  # Theos 兼容 macOS 13 环境最好
+    env:
+      THEOS: /opt/theos
 
     steps:
       - name: 🧱 Checkout source
         uses: actions/checkout@v4
 
-      # 修复 troller.m 被错误放入资源文件
-      - name: 🔧 Fix troller.m build phase
+      - name: 🧰 Install Theos dependencies
         run: |
-          echo "🔧 Fixing Xcode project..."
-          sed -i '' '/troller.m in Resources/d' TaskPortHaxxApp.xcodeproj/project.pbxproj || true
-          sed -i '' '/troller.m/d' TaskPortHaxxApp.xcodeproj/project.pbxproj || true
+          brew install ldid make perl wget dpkg
+          sudo git clone --recursive https://github.com/theos/theos.git /opt/theos
 
-      # 指定 Xcode 版本
-      - name: 🧰 Set Xcode
-        run: sudo xcode-select -s "/Applications/Xcode_16.1.app"
-
-      # 修复 bootstrap.h 缺失
-      - name: 🪶 Add missing Darwin headers
+      - name: 🔧 Setup SDK (iPhone 16.5)
         run: |
-          mkdir -p headers/mach
-          curl -s -o headers/mach/bootstrap.h https://raw.githubusercontent.com/apple-oss-distributions/xnu/main/osfmk/mach/bootstrap.h
-          curl -s -o headers/mach/mach_init.h https://raw.githubusercontent.com/apple-oss-distributions/xnu/main/osfmk/mach/mach_init.h
-          curl -s -o headers/mach/mach_port.h https://raw.githubusercontent.com/apple-oss-distributions/xnu/main/osfmk/mach/mach_port.h
+          mkdir -p $THEOS/sdks
+          wget -q https://github.com/theos/sdks/archive/refs/heads/master.zip -O /tmp/sdks.zip
+          unzip -q /tmp/sdks.zip -d /tmp/
+          mv /tmp/sdks-master/*.sdk $THEOS/sdks/
 
-      # 构建 iOS app
-      - name: 🚀 Build TaskPortHaxxApp (for TrollStore)
+      - name: 🚀 Build IPA (TrollStore Compatible)
         run: |
-          echo "🚀 Starting build for TrollStore..."
-          xcodebuild \
-            -project TaskPortHaxxApp.xcodeproj \
-            -scheme TaskPortHaxxApp \
-            -configuration Release \
-            -sdk iphoneos \
-            -destination 'generic/platform=iOS' \
-            SYMROOT=$(pwd)/build \
-            build \
-            HEADER_SEARCH_PATHS="$(pwd)/headers" \
-            CODE_SIGN_IDENTITY="" \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO \
-            ONLY_ACTIVE_ARCH=NO \
-            ENABLE_BITCODE=NO \
-            COMPILER_INDEX_STORE_ENABLE=NO \
-            | tee xcodebuild.log | xcpretty
+          echo "🏗️ Building with Theos..."
+          make clean
+          make package FINALPACKAGE=1
+          echo "✅ Build complete"
+          ls -R packages
 
-          echo "📂 Build output:"
-          find build -type d -name "*.app"  # 确保 .app 文件已经生成
-
-          # 输出 Xcode 构建设置
-          xcodebuild -showBuildSettings
-
-      # 构建 Payload 并压缩
-      - name: 📦 Prepare Payload zip
-        run: |
-          echo "📦 Creating Payload.zip..."
-          mkdir -p Payload
-          APP_PATH=$(find build -type d -name "TaskPortHaxxApp.app" | head -n 1)
-
-          if [ -z "$APP_PATH" ]; then
-            echo "❌ Error: .app not found!"
-            tail -n 50 xcodebuild.log
-            exit 1
-          fi
-
-          cp -r "$APP_PATH" Payload/
-          # 如果仓库中有 Resources 目录，一并包含进去
-          if [ -d "Resources" ]; then
-            cp -r Resources Payload/TaskPortHaxxApp.app/Resources/
-          fi
-
-          zip -r Payload.zip Payload > /dev/null
-          echo "✅ Payload.zip ready!"
-
-      # 上传构建产物
-      - name: ☁️ Upload build artifact
+      - name: ☁️ Upload IPA
         uses: actions/upload-artifact@v4
         with:
-          name: TaskPortHaxxApp-Payload
-          path: |
-            Payload.zip
-            xcodebuild.log
+          name: TaskPortHaxxApp-IPA
+          path: packages/*.ipa
