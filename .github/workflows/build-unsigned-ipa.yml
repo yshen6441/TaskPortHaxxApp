@@ -35,6 +35,7 @@ jobs:
       # 构建 iOS app
       - name: 🚀 Build TaskPortHaxxApp (for TrollStore)
         run: |
+          echo "🚀 Starting build for TrollStore..."
           xcodebuild \
             -project TaskPortHaxxApp.xcodeproj \
             -scheme TaskPortHaxxApp \
@@ -52,8 +53,9 @@ jobs:
             COMPILER_INDEX_STORE_ENABLE=NO \
             | tee xcodebuild.log | xcpretty
 
-          echo "📂 Build output:"
-          find build -type d -name "*.app"
+          # 输出 Xcode 构建设置，确认输出路径
+          echo "📂 Build settings and output directories:"
+          xcodebuild -showBuildSettings
 
       # 构建 Payload 并压缩
       - name: 📦 Prepare Payload zip
