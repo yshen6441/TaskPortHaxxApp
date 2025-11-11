@@ -1,59 +1,42 @@
-name: Build TaskPortHaxxApp on macOS
+name: Build TaskPortHaxxApp
 
 on:
   push:
-    branches:
-      - pacbf  # 你可以根据需要修改为你的分支名
+    branches: [ pacbf ]
   pull_request:
-    branches:
-      - pacbf  # 你可以根据需要修改为你的分支名
 
 jobs:
   build:
-    runs-on: macos-latest  # 使用最新的 macOS 构建环境
+    runs-on: macos-14
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout source
+        uses: actions/checkout@v4
 
-    - name: Set up Ruby
-      uses: ruby/setup-ruby@v1
-      with:
-        ruby-version: 2.7  # 使用 Ruby 2.7（可以根据你的需求修改）
+      - name: Select Xcode version
+        run: sudo xcode-select -s "/Applications/Xcode_16.1.app"
 
-    - name: Install dependencies
-      run: |
-        gem install fastlane
+      - name: Show Xcode version
+        run: xcodebuild -version
 
-    - name: Install CocoaPods dependencies
-      run: |
-        pod install
+      - name: Build TaskPortHaxxApp
+        run: |
+          xcodebuild \
+            -project TaskPortHaxxApp.xcodeproj \
+            -scheme TaskPortHaxxApp \
+            -configuration Release \
+            -sdk iphoneos \
+            build CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO
 
-    - name: Build the app
-      run: |
-        # 使用 Xcode 构建项目，跳过签名
-        xcodebuild \
-          -project TaskPortHaxxApp.xcodeproj \
-          -scheme TaskPortHaxxApp \
-          -configuration Release \
-          CODE_SIGNING_REQUIRED=NO \
-          CODE_SIGN_IDENTITY="" \
-          CODE_SIGNING_ALLOWED=NO \
-          OTHER_LDFLAGS="-framework IOKit" \
-          OTHER_CFLAGS="-fobjc-arc"
+      - name: Package .ipa
+        run: |
+          mkdir -p Payload
+          cp -r build/Release-iphoneos/TaskPortHaxxApp.app Payload/
+          zip -r TaskPortHaxxApp.ipa Payload
+          rm -rf Payload
 
-    - name: Archive the app and export .ipa
-      run: |
-        # 设置导出路径
-        mkdir -p $GITHUB_WORKSPACE/build/ipa
-
-        # 导出 .ipa 文件
-        xcodebuild -archivePath $GITHUB_WORKSPACE/build/TaskPortHaxxApp.xcarchive \
-          -exportPath $GITHUB_WORKSPACE/build/ipa \
-          -exportOptionsPlist ExportOptions.plist
-
-    - name: Upload .ipa as artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: TaskPortHaxxApp-ipa
-        path: $GITHUB_WORKSPACE/build/ipa/*.ipa
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: TaskPortHaxxApp
+          path: TaskPortHaxxApp.ipa
