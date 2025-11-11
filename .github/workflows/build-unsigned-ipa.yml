@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    runs-on: macos-latest  # ✅ 使用最新 macOS 15 runner
+    runs-on: macos-latest
     env:
       THEOS: /opt/theos
 
@@ -23,11 +23,19 @@ jobs:
       - name: 🔧 Setup SDK (iPhone 16.5)
         run: |
           sudo mkdir -p $THEOS/sdks
-          sudo chown -R $USER:$USER $THEOS/sdks  # 给当前用户权限
           wget -q https://github.com/theos/sdks/archive/refs/heads/master.zip -O /tmp/sdks.zip
           unzip -q /tmp/sdks.zip -d /tmp/
-          sudo mv /tmp/sdks-master/*.sdk $THEOS/sdks/
-          echo "✅ SDKs installed and moved to $THEOS/sdks"
+          sudo mv /tmp/sdks-master/*.sdk $THEOS/sdks/ || true
+          ls -l $THEOS/sdks
+          echo "✅ SDKs installed successfully in $THEOS/sdks"
+
+      - name: 🚀 Build IPA (TrollStore Compatible)
+        run: |
+          echo "🏗️ Building with Theos..."
+          make clean
+          make package FINALPACKAGE=1
+          echo "✅ Build complete"
+          ls -R packages
 
       - name: ☁️ Upload IPA
         uses: actions/upload-artifact@v4
