@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    runs-on: macos-13  # Theos 兼容 macOS 13 环境最好
+    runs-on: macos-latest  # ✅ 使用最新 macOS 15 runner
     env:
       THEOS: /opt/theos
 
