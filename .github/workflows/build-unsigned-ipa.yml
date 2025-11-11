@@ -34,7 +34,7 @@ jobs:
           curl -s -o headers/mach/mach_port.h https://raw.githubusercontent.com/apple-oss-distributions/xnu/main/osfmk/mach/mach_port.h
           echo "✅ Headers ready: $(ls headers/mach)"
 
-            # ✅ 构建 TrollStore 可侧载的 iOS App（无签名）
+      # ✅ 构建 TrollStore 可侧载的 iOS App（无签名）
       - name: Build TaskPortHaxxApp (iOS)
         run: |
           echo "🚀 Starting build for TrollStore..."
@@ -56,7 +56,7 @@ jobs:
             | tee xcodebuild.log | xcpretty
 
           echo "📂 Build output:"
-          find build -maxdepth 3 -type d -name "*.app"
+          find build -type d -name "*.app"  # 检查 .app 文件是否存在
 
       # ✅ 打包为 TrollStore 可安装的 .ipa
       - name: Package .ipa
@@ -64,18 +64,21 @@ jobs:
           echo "📦 Packaging IPA..."
           mkdir -p Payload
           APP_PATH=$(find build -type d -name "TaskPortHaxxApp.app" | head -n 1)
+          
+          # 如果没有找到 .app 文件，打印日志并终止构建
           if [ -z "$APP_PATH" ]; then
             echo "❌ Error: .app not found!"
             echo "Build log:"
             tail -n 50 xcodebuild.log
             exit 1
           fi
-          cp -r "$APP_PATH" Payload/
-          zip -r TaskPortHaxxApp.ipa Payload > /dev/null
-          rm -rf Payload
+
+          cp -r "$APP_PATH" Payload/  # 将 .app 拷贝到 Payload 目录
+          zip -r TaskPortHaxxApp.ipa Payload > /dev/null  # 打包 .ipa
+          rm -rf Payload  # 删除临时 Payload 文件夹
           echo "✅ IPA packaged successfully: TaskPortHaxxApp.ipa"
 
-      # ✅ 上传 .ipa 与日志
+      # ✅ 上传 .ipa 和日志
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
