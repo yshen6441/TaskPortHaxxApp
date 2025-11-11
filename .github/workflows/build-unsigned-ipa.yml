@@ -34,7 +34,7 @@ jobs:
           curl -s -o headers/mach/mach_port.h https://raw.githubusercontent.com/apple-oss-distributions/xnu/main/osfmk/mach/mach_port.h
           echo "✅ Headers ready: $(ls headers/mach)"
 
-      # ✅ 构建 TrollStore 可侧载的 iOS App（无签名）
+            # ✅ 构建 TrollStore 可侧载的 iOS App（无签名）
       - name: Build TaskPortHaxxApp (iOS)
         run: |
           echo "🚀 Starting build for TrollStore..."
@@ -44,6 +44,7 @@ jobs:
             -configuration Release \
             -sdk iphoneos \
             -destination 'generic/platform=iOS' \
+            SYMROOT=$(pwd)/build \
             build \
             HEADER_SEARCH_PATHS="$(pwd)/headers" \
             CODE_SIGN_IDENTITY="" \
@@ -52,7 +53,10 @@ jobs:
             ONLY_ACTIVE_ARCH=NO \
             ENABLE_BITCODE=NO \
             COMPILER_INDEX_STORE_ENABLE=NO \
-            | tee xcodebuild.log | xcpretty || true
+            | tee xcodebuild.log | xcpretty
+
+          echo "📂 Build output:"
+          find build -maxdepth 3 -type d -name "*.app"
 
       # ✅ 打包为 TrollStore 可安装的 .ipa
       - name: Package .ipa
@@ -60,10 +64,16 @@ jobs:
           echo "📦 Packaging IPA..."
           mkdir -p Payload
           APP_PATH=$(find build -type d -name "TaskPortHaxxApp.app" | head -n 1)
+          if [ -z "$APP_PATH" ]; then
+            echo "❌ Error: .app not found!"
+            echo "Build log:"
+            tail -n 50 xcodebuild.log
+            exit 1
+          fi
           cp -r "$APP_PATH" Payload/
           zip -r TaskPortHaxxApp.ipa Payload > /dev/null
           rm -rf Payload
-          echo "✅ IPA packaged successfully."
+          echo "✅ IPA packaged successfully: TaskPortHaxxApp.ipa"
 
       # ✅ 上传 .ipa 与日志
       - name: Upload build artifact
