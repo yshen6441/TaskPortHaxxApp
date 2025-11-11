@@ -2,7 +2,7 @@ name: Build TaskPortHaxxApp (Payload Zip)
 
 on:
   push:
-    branches: [ main ]
+    branches: [ pacbf ]
   pull_request:
 
 jobs:
