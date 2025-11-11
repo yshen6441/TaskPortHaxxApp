@@ -22,18 +22,12 @@ jobs:
 
       - name: 🔧 Setup SDK (iPhone 16.5)
         run: |
-          mkdir -p $THEOS/sdks
+          sudo mkdir -p $THEOS/sdks
+          sudo chown -R $USER:$USER $THEOS/sdks  # 给当前用户权限
           wget -q https://github.com/theos/sdks/archive/refs/heads/master.zip -O /tmp/sdks.zip
           unzip -q /tmp/sdks.zip -d /tmp/
-          mv /tmp/sdks-master/*.sdk $THEOS/sdks/
-
-      - name: 🚀 Build IPA (TrollStore Compatible)
-        run: |
-          echo "🏗️ Building with Theos..."
-          make clean
-          make package FINALPACKAGE=1
-          echo "✅ Build complete"
-          ls -R packages
+          sudo mv /tmp/sdks-master/*.sdk $THEOS/sdks/
+          echo "✅ SDKs installed and moved to $THEOS/sdks"
 
       - name: ☁️ Upload IPA
         uses: actions/upload-artifact@v4
