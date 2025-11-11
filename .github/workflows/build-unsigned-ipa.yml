@@ -2,7 +2,7 @@ name: Build TaskPortHaxxApp (Payload Zip)
 
 on:
   push:
-    branches: [ pacbf ]
+    branches: [ main ]
   pull_request:
 
 jobs:
@@ -53,8 +53,10 @@ jobs:
             COMPILER_INDEX_STORE_ENABLE=NO \
             | tee xcodebuild.log | xcpretty
 
-          # 输出 Xcode 构建设置，确认输出路径
-          echo "📂 Build settings and output directories:"
+          echo "📂 Build output:"
+          find build -type d -name "*.app"  # 确保 .app 文件已经生成
+
+          # 输出 Xcode 构建设置
           xcodebuild -showBuildSettings
 
       # 构建 Payload 并压缩
