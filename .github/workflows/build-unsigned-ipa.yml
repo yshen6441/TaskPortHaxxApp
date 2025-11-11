@@ -1,4 +1,4 @@
-name: Build TaskPortHaxxApp
+name: Build TaskPortHaxxApp for TrollStore
 
 on:
   push:
@@ -13,7 +13,7 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
-      # ✅ 修复 project.pbxproj 中错误的 troller.m 配置（移出 Resources 阶段）
+      # ✅ 修复 troller.m 被错误放入 Resources 的问题
       - name: Fix troller.m build phase
         run: |
           sed -i '' '/troller.m in Resources/d' TaskPortHaxxApp.xcodeproj/project.pbxproj
@@ -22,7 +22,16 @@ jobs:
       - name: Select Xcode version
         run: sudo xcode-select -s "/Applications/Xcode_16.1.app"
 
-      - name: Build TaskPortHaxxApp
+      # ✅ 添加 Darwin 头文件（修复 bootstrap.h 找不到）
+      - name: Add missing Darwin headers
+        run: |
+          mkdir -p headers/mach
+          curl -s -o headers/mach/bootstrap.h https://raw.githubusercontent.com/apple-oss-distributions/xnu/main/osfmk/mach/bootstrap.h
+          curl -s -o headers/mach/mach_init.h https://raw.githubusercontent.com/apple-oss-distributions/xnu/main/osfmk/mach/mach_init.h
+          curl -s -o headers/mach/mach_port.h https://raw.githubusercontent.com/apple-oss-distributions/xnu/main/osfmk/mach/mach_port.h
+
+      # ✅ 构建 TrollStore 可侧载的 iOS App（无签名）
+      - name: Build TaskPortHaxxApp (iOS)
         run: |
           xcodebuild \
             -project TaskPortHaxxApp.xcodeproj \
@@ -30,6 +39,7 @@ jobs:
             -configuration Release \
             -sdk iphoneos \
             build \
+            HEADER_SEARCH_PATHS="$(pwd)/headers" \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
@@ -38,6 +48,7 @@ jobs:
             COMPILER_INDEX_STORE_ENABLE=NO \
             -quiet
 
+      # ✅ 打包为 TrollStore 可用 .ipa
       - name: Package .ipa
         run: |
           mkdir -p Payload
@@ -45,6 +56,7 @@ jobs:
           zip -r TaskPortHaxxApp.ipa Payload
           rm -rf Payload
 
+      # ✅ 上传结果
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
