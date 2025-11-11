@@ -30,6 +30,12 @@ jobs:
           curl -s -o headers/mach/mach_init.h https://raw.githubusercontent.com/apple-oss-distributions/xnu/main/osfmk/mach/mach_init.h
           curl -s -o headers/mach/mach_port.h https://raw.githubusercontent.com/apple-oss-distributions/xnu/main/osfmk/mach/mach_port.h
 
+      # ✅ 验证头文件路径是否正确
+      - name: Verify headers path
+        run: |
+          echo "Header search path: $(pwd)/headers"
+          ls $(pwd)/headers/mach
+
       # ✅ 构建 TrollStore 可侧载的 iOS App（无签名）
       - name: Build TaskPortHaxxApp (iOS)
         run: |
@@ -38,6 +44,7 @@ jobs:
             -scheme TaskPortHaxxApp \
             -configuration Release \
             -sdk iphoneos \
+            -destination 'platform=iOS Simulator,name=iPhone 14' \
             build \
             HEADER_SEARCH_PATHS="$(pwd)/headers" \
             CODE_SIGN_IDENTITY="" \
